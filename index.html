@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>韭菜啟蒙手冊：8-Bit 像素風股市實戰模擬器</title>
+  <!-- 引入復古像素風格字體 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0d1117;
+      --card-bg: #161b22;
+      --border-color: #30363d;
+      --text-main: #f0f6fc;
+      --text-dim: #8b949e;
+      --pixel-green: #39d353;
+      --pixel-red: #ff4757;
+      --pixel-gold: #f1c40f;
+      --pixel-blue: #58a6ff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: 'DotGothic16', monospace, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    /* 頂部掃描線特效 */
+    body::before {
+      content: " ";
+      display: block;
+      position: fixed;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      z-index: 100;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 12px;
+      border-bottom: 2px dashed var(--pixel-gold);
+      padding-bottom: 8px;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    h1 {
+      font-family: 'DotGothic16', cursive;
+      font-size: 1.8rem;
+      color: var(--pixel-gold);
+      text-shadow: 2px 2px #000;
+      letter-spacing: 2px;
+    }
+
+    .sub-bar {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.95rem;
+      color: var(--text-dim);
+      margin-top: 4px;
+      padding: 0 8px;
+    }
+
+    /* 主容器 */
+    .game-container {
+      width: 100%;
+      max-width: 900px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      position: relative;
+    }
+
+    /* 儀表板 */
+    .dashboard {
+      background: var(--card-bg);
+      border: 3px solid var(--border-color);
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 4px 4px 0px #000;
+    }
+
+    .dash-item {
+      text-align: center;
+    }
+
+    .dash-label {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .dash-val {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--pixel-gold);
+      font-family: 'Press Start 2P', monospace;
+    }
+
+    .time-bar-box {
+      width: 100%;
+      height: 12px;
+      background: #21262d;
+      border: 2px solid var(--border-color);
+      position: relative;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .time-bar-fill {
+      height: 100%;
+      width: 100%;
+      background: var(--pixel-blue);
+      transition: width 0.3s linear;
+    }
+
+    /* 雙股票面板網格 */
+    .stocks-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .stocks-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .stock-card {
+      background: var(--card-bg);
+      border: 3px solid var(--border-color);
+      padding: 12px;
+      box-shadow: 4px 4px 0px #000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+    }
+
+    .stock-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 4px;
+    }
+
+    .stock-name {
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    .stock-tag {
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      background: #21262d;
+      border: 1px solid var(--border-color);
+    }
+
+    .stock-price-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .current-price {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 1.3rem;
+    }
+
+    .price-change {
+      font-size: 0.9rem;
+      font-weight: bold;
+    }
+
+    /* 台股規範：紅漲綠跌 */
+    .up { color: var(--pixel-red) !important; }
+    .down { color: var(--pixel-green) !important; }
+    .flat { color: var(--text-dim) !important; }
+
+    /* Canvas 走勢圖 */
+    canvas.chart-canvas {
+      width: 100%;
+      height: 130px;
+      background: #090d13;
+      border: 1px solid #21262d;
+    }
+
+    .hold-info {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      background: #0d1117;
+      padding: 6px;
+      border-left: 3px solid var(--pixel-blue);
+    }
+
+    /* 交易按鈕區 */
+    .trade-actions {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    button.btn {
+      font-family: 'DotGothic16', monospace;
+      font-size: 0.95rem;
+      padding: 8px 4px;
+      cursor: pointer;
+      border: 2px solid #000;
+      background: #21262d;
+      color: var(--text-main);
+      box-shadow: 2px 2px 0px #000;
+      transition: all 0.05s ease;
+      font-weight: bold;
+    }
+
+    button.btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 0px 0px 0px #000;
+    }
+
+    button.btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: 2px 2px 0px #000;
+    }
+
+    button.btn-buy {
+      background: #8b0000;
+      color: #fff;
+    }
+    button.btn-buy:hover:not(:disabled) {
+      background: var(--pixel-red);
+    }
+
+    button.btn-sell {
+      background: #005a18;
+      color: #fff;
+    }
+    button.btn-sell:hover:not(:disabled) {
+      background: var(--pixel-green);
+    }
+
+    /* 彈窗遮罩 */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      z-index: 200;
+    }
+
+    .modal-card {
+      background: var(--card-bg);
+      border: 4px solid var(--pixel-gold);
+      padding: 24px;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 8px 8px 0px #000;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+    }
+
+    /* 突發警報專屬高亮邊框 */
+    .modal-card-alert {
+      border: 4px solid var(--pixel-red);
+      box-shadow: 0 0 25px rgba(255, 71, 87, 0.8), 8px 8px 0px #000;
+    }
+
+    .modal-title {
+      font-size: 1.4rem;
+      color: var(--pixel-gold);
+      text-align: center;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    .modal-title-alert {
+      color: var(--pixel-red) !important;
+      font-weight: bold;
+      animation: alertPulse 1s infinite alternate;
+    }
+
+    @keyframes alertPulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.03); }
+    }
+
+    .modal-content {
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+
+    .modal-btn {
+      background: var(--pixel-gold);
+      color: #000;
+      font-size: 1.1rem;
+      font-weight: bold;
+      padding: 10px;
+      border: 3px solid #000;
+      cursor: pointer;
+      box-shadow: 4px 4px 0px #000;
+      font-family: 'DotGothic16', monospace;
+    }
+    .modal-btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0px #000;
+    }
+
+    .modal-btn-alert {
+      background: var(--pixel-red) !important;
+      color: #fff !important;
+    }
+
+    .tip-box {
+      background: #0d1117;
+      border: 2px dashed var(--pixel-blue);
+      padding: 10px;
+      font-size: 0.95rem;
+      color: #a5d6ff;
+    }
+
+    .stat-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 1rem;
+    }
+
+    /* 最終結算圖表 */
+    #finalChartCanvas {
+      width: 100%;
+      height: 180px;
+      background: #090d13;
+      border: 2px solid var(--border-color);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>★ 韭菜啟蒙手冊：股市實戰模擬 ★</h1>
+    <div class="sub-bar">
+      <span>【教學模式：動態隨機事件 10 回合】</span>
+      <span>台股規範：紅漲▲ / 綠跌▼</span>
+    </div>
+  </header>
+
+  <div class="game-container">
+    <!-- 頂部即時面板 -->
+    <div class="dashboard">
+      <div class="dash-item">
+        <div class="dash-label">當前交易日</div>
+        <div id="dayDisplay" class="dash-val">第 1 / 10 天</div>
+      </div>
+      <div class="dash-item">
+        <div class="dash-label">可用現金 (NTD)</div>
+        <div id="cashDisplay" class="dash-val">50,000</div>
+      </div>
+      <div class="dash-item">
+        <div class="dash-label">總資產估值</div>
+        <div id="totalAssetDisplay" class="dash-val">50,000</div>
+      </div>
+      <div class="dash-item">
+        <div class="dash-label">累計報酬率</div>
+        <div id="roiDisplay" class="dash-val flat">0.0%</div>
+      </div>
+      <div style="width: 100%;">
+        <div class="dash-label" style="display:flex; justify-content:space-between;">
+          <span>今日盤中倒數</span>
+          <span id="timerText">30s</span>
+        </div>
+        <div class="time-bar-box">
+          <div id="timeBarFill" class="time-bar-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 雙股票操作面板 -->
+    <div class="stocks-grid">
+      <!-- 標的 A：穩定股 -->
+      <div class="stock-card" id="cardA">
+        <div class="stock-header">
+          <div>
+            <span class="stock-name">穩定股</span>
+            <span style="font-size:0.8rem; color:var(--text-dim);">(7777)</span>
+          </div>
+          <span class="stock-tag">穩健權值・防禦型</span>
+        </div>
+        <div class="stock-price-info">
+          <div>
+            <span class="dash-label">現價</span><br>
+            <span id="priceA" class="current-price">600.0</span>
+          </div>
+          <div style="text-align: right;">
+            <span class="dash-label">今日漲跌</span><br>
+            <span id="changeA" class="price-change flat">0.00%</span>
+          </div>
+        </div>
+
+        <canvas id="chartA" class="chart-canvas"></canvas>
+
+        <div class="hold-info">
+          持有：<span id="sharesA">0</span> 股 | 均價：$<span id="avgCostA">0</span>
+        </div>
+
+        <div class="trade-actions">
+          <button class="btn btn-buy" onclick="buyStock('A', 1)">買 1 股</button>
+          <button class="btn btn-buy" onclick="buyStock('A', 10)">買 10 股</button>
+          <button class="btn btn-sell" onclick="sellStock('A', 1)">賣 1 股</button>
+          <button class="btn btn-sell" onclick="sellStock('A', 10)">賣 10 股</button>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+          <button class="btn" style="background:#551111; color:#fff;" onclick="buyStockMax('A')">買到極限</button>
+          <button class="btn" style="background:#115522; color:#fff;" onclick="sellStockAll('A')">全數清倉</button>
+        </div>
+      </div>
+
+      <!-- 標的 B：刺激股 -->
+      <div class="stock-card" id="cardB">
+        <div class="stock-header">
+          <div>
+            <span class="stock-name">刺激股</span>
+            <span style="font-size:0.8rem; color:var(--text-dim);">(4444)</span>
+          </div>
+          <span class="stock-tag" style="border-color:#ff4757; color:#ff4757;">妖股題材・極端波動</span>
+        </div>
+        <div class="stock-price-info">
+          <div>
+            <span class="dash-label">現價</span><br>
+            <span id="priceB" class="current-price">50.0</span>
+          </div>
+          <div style="text-align: right;">
+            <span class="dash-label">今日漲跌</span><br>
+            <span id="changeB" class="price-change flat">0.00%</span>
+          </div>
+        </div>
+
+        <canvas id="chartB" class="chart-canvas"></canvas>
+
+        <div class="hold-info">
+          持有：<span id="sharesB">0</span> 股 | 均價：$<span id="avgCostB">0</span>
+        </div>
+
+        <div class="trade-actions">
+          <button class="btn btn-buy" onclick="buyStock('B', 10)">買 10 股</button>
+          <button class="btn btn-buy" onclick="buyStock('B', 50)">買 50 股</button>
+          <button class="btn btn-sell" onclick="sellStock('B', 10)">賣 10 股</button>
+          <button class="btn btn-sell" onclick="sellStock('B', 50)">賣 50 股</button>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+          <button class="btn" style="background:#551111; color:#fff;" onclick="buyStockMax('B')">買到極限</button>
+          <button class="btn" style="background:#115522; color:#fff;" onclick="sellStockAll('B')">全數清倉</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 彈窗系統 -->
+  <div id="modalOverlay" class="modal-overlay">
+    <!-- 導覽 1 -->
+    <div id="introModal1" class="modal-card">
+      <div class="modal-title">新手特訓 (1/3)：紅漲綠跌？</div>
+      <div class="modal-content">
+        歡迎來到股市新手實戰！在台股規則中：<br><br>
+        <b style="color:var(--pixel-red)">▲ 紅色 代表上漲</b>：大家搶著買，價格被推高。<br>
+        <b style="color:var(--pixel-green)">▼ 綠色 代表下跌</b>：大家拋售倒貨，價格下滑。<br><br>
+        記住：<b>逢低佈局、不盲目追高</b> 是長期存活的鐵則！
+      </div>
+      <button class="modal-btn" onclick="nextIntro(2)">下一步 ➔</button>
+    </div>
+
+    <!-- 導覽 2 -->
+    <div id="introModal2" class="modal-card" style="display:none;">
+      <div class="modal-title">新手特訓 (2/3)：大學生專屬零股</div>
+      <div class="modal-content">
+        你手頭只有 <b>$50,000 元</b> 本金。<br><br>
+        台股傳統一張是 1,000 股，像穩定股一股 600 元，買一張就要 60 萬！大學生根本買不起。<br><br>
+        但透過<b>「零股交易」</b>，你可以只買 <b>1 股、10 股</b>！幾百幾千塊就能當大公司股東。
+      </div>
+      <button class="modal-btn" onclick="nextIntro(3)">下一步 ➔</button>
+    </div>
+
+    <!-- 導覽 3 -->
+    <div id="introModal3" class="modal-card" style="display:none;">
+      <div class="modal-title">新手特訓 (3/3)：動態隨機消息面</div>
+      <div class="modal-content">
+        每次開局的市場事件都<b>完全隨機產生</b>：<br><br>
+        ● <b>第 1～4 天（盤前頭條）</b>：開盤前研讀分析，預判開盤走勢。<br>
+        ● <b>第 5～10 天（盤中突發彈窗）</b>：盤中隨時跳出警報並<b>暫停計時</b>，關閉彈窗後立即考驗臨場決策！
+      </div>
+      <button class="modal-btn" onclick="startGame()">我知道了，開始隨機 10 天實戰！</button>
+    </div>
+
+    <!-- 盤前頭條彈窗 (Day 1~4) -->
+    <div id="preMarketModal" class="modal-card" style="display:none;">
+      <div class="modal-title" id="preMarketTitle">【第 X 天 盤前頭條】</div>
+      <div class="modal-content" id="preMarketContent"></div>
+      <div class="tip-box" id="preMarketTip"></div>
+      <button class="modal-btn" onclick="startDailyTrading()">敲鐘開盤！(盤中 30 秒)</button>
+    </div>
+
+    <!-- 盤中突發重大快訊彈窗 (Day 5~10 專用) -->
+    <div id="midMarketAlertModal" class="modal-card modal-card-alert" style="display:none;">
+      <div class="modal-title modal-title-alert" id="midAlertTitle">🚨 盤中重大突發快訊 🚨</div>
+      <div class="modal-content">
+        <div id="midAlertContent" style="font-size:1.15rem; font-weight:bold; margin-bottom:10px;"></div>
+        <div style="font-size:0.95rem; color:var(--text-dim);" id="midAlertDesc"></div>
+      </div>
+      <div class="tip-box" id="midAlertTip" style="border-color:var(--pixel-red); color:#ffb8b8;"></div>
+      <button class="modal-btn modal-btn-alert" onclick="closeMidMarketAlert()">收到！回盤中應對 ➔</button>
+    </div>
+
+    <!-- 每日收盤覆盤彈窗 -->
+    <div id="reviewModal" class="modal-card" style="display:none;">
+      <div class="modal-title" id="reviewTitle">今日收盤結算</div>
+      <div class="modal-content">
+        <div class="stat-list">
+          <div>本日收盤總資產：$<span id="reviewAsset"></span></div>
+          <div>本日帳面損益：<span id="reviewProfit"></span></div>
+        </div>
+        <br>
+        <div class="tip-box" id="reviewTip"></div>
+      </div>
+      <button class="modal-btn" id="nextDayBtn" onclick="proceedNextDay()">進入下一天 ➔</button>
+    </div>
+
+    <!-- 第 10 天最終大結算彈窗 -->
+    <div id="finalModal" class="modal-card" style="display:none; max-width: 600px;">
+      <div class="modal-title">★ 10 天實戰成果結算 ★</div>
+      <div class="modal-content">
+        <div style="text-align:center; margin-bottom:12px;">
+          <div style="font-size:0.9rem; color:var(--text-dim);">最終韭菜評級</div>
+          <div id="finalBadge" style="font-size:1.6rem; color:var(--pixel-gold); font-weight:bold; margin-top:4px;"></div>
+        </div>
+
+        <div class="stat-list">
+          <div>初始本金：$50,000 元</div>
+          <div>最終結算資產：$<span id="finalAsset"></span> 元</div>
+          <div>總累積報酬率：<span id="finalRoi"></span></div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div style="font-size:0.85rem; color:var(--text-dim); margin-bottom:4px;">10 天總資產變化曲線：</div>
+          <canvas id="finalChartCanvas"></canvas>
+        </div>
+      </div>
+      <button class="modal-btn" onclick="restartGame()">重新開局挑戰！</button>
+    </div>
+  </div>
+
+  <script>
+    /* ============================================================
+       遊戲常數與核心狀態
+       ============================================================ */
+    const INITIAL_CASH = 50000;
+    const TOTAL_DAYS = 10;
+    const DAY_DURATION_SEC = 30;
+    const TICK_INTERVAL_MS = 1500;
+
+    let currentDay = 1;
+    let cash = INITIAL_CASH;
+    let timer = DAY_DURATION_SEC;
+    let timerIntervalId = null;
+    let tickIntervalId = null;
+    let isMarketOpen = false;
+    let isPausedForNews = false;
+
+    // 歷史資產記錄
+    let assetHistory = [INITIAL_CASH];
+
+    // 標的資料
+    const stockA = {
+      name: "穩定股",
+      code: "7777",
+      basePrice: 600.0,
+      price: 600.0,
+      dayOpenPrice: 600.0,
+      shares: 0,
+      totalCost: 0,
+      history: [600.0],
+      trendBias: 0
+    };
+
+    const stockB = {
+      name: "刺激股",
+      code: "4444",
+      basePrice: 50.0,
+      price: 50.0,
+      dayOpenPrice: 50.0,
+      shares: 0,
+      totalCost: 0,
+      history: [50.0],
+      trendBias: 0
+    };
+
+    /* ============================================================
+       隨機事件題庫（分為盤前池與盤中池）
+       ============================================================ */
+    const PRE_MARKET_POOL = [
+      {
+        title: "先進晶圓製程良率大突破！",
+        content: "龍頭半導體傳出製程良率超乎預期，外資法人一致調升評級，買單排隊開出。",
+        tip: "小錦囊：穩健權值股有實質營收與獲利支撐，遇到產業利多時波動平緩向上，適合當核心防禦。",
+        biasA: 0.003, biasB: 0.001
+      },
+      {
+        title: "特定 AI 晶片突遭國際出口禁令！",
+        content: "地緣政治風暴再起，二線題材股面臨訂單腰斬危機，短線避險情緒瀰漫。",
+        tip: "小錦囊：妖股對政策與風吹草動極端敏感，容易暴跌。千萬不可單押一檔，做好資金分配是保命符。",
+        biasA: -0.001, biasB: -0.02
+      },
+      {
+        title: "社群論壇散戶齊力喊單「刺激股 宇宙第一」！",
+        content: "年輕散戶群起狂熱湧進刺激股，開盤前委買量暴增五倍，市場短線氣氛沸騰！",
+        tip: "小錦囊：群眾狂熱時雖然漲得快，但也隨時可能面臨主力倒貨。學會見好就收，分批落袋才是真獲利。",
+        biasA: 0.001, biasB: 0.028
+      },
+      {
+        title: "通膨數據低於預期，央行維持溫和利率！",
+        content: "全球宏觀經濟隱憂暫歇，市場情緒回穩，長線法人資金緩步回流權值股。",
+        tip: "小錦囊：總體經濟趨穩通常有利於權值股緩步走高。觀察盤面資金輪動是投資人的必修課。",
+        biasA: 0.003, biasB: 0.004
+      },
+      {
+        title: "國際大廠宣布縮減晶片資本支出！",
+        content: "終端消費市場需求疲軟，供應鏈傳出庫存去化放緩，權值大盤今日開盤面臨整理壓力。",
+        tip: "小錦囊：景氣循環有高峰也有低谷，遇到回檔不要恐慌盲目殺低，檢視企業基本面最重要。",
+        biasA: -0.002, biasB: -0.008
+      },
+      {
+        title: "國際新興技術標準確立，刺激股受惠取得先機！",
+        content: "新規格題材點燃市場想像空間，刺激股開盤買盤積極卡位！",
+        tip: "小錦囊：題材股往往『買在預期，賣在實現』，漲幅過大時要警惕後續獲利回吐賣壓。",
+        biasA: 0.001, biasB: 0.022
+      },
+      {
+        title: "國際原物料價格大幅回檔，科技業毛利預期受惠！",
+        content: "生產成本壓力緩解，市場分析師看好整體製造業獲利結構改善。",
+        tip: "小錦囊：成本改善是默默帶動獲利基本面的隱形利多，權值股常呈現慢牛緩步走升特質。",
+        biasA: 0.0025, biasB: 0.006
+      }
+    ];
+
+    const MID_MARKET_POOL = [
+      {
+        title: "刺激股傳出財報營收灌水，主管機關緊急介入！",
+        content: "突發黑天鵝！散戶恐慌抽單狂逃，市場爆出雪崩式急殺！",
+        tip: "小錦囊：盤中遭遇斷崖式暴跌切忌無腦搶反彈。在趨勢尚未止跌前，徒手接刀子容易被套牢。",
+        biasA: -0.001, biasB: -0.045
+      },
+      {
+        title: "央行無預警宣布降息半碼，市場資金狂潮出動！",
+        content: "寬鬆利多從天而降！熱錢橫掃市場，多頭勢如破竹，雙標的全面拔地而起！",
+        tip: "小錦囊：市場資金面轉向往往帶動大盤整體估值提升，持有適度股票部位才能享受通膨紅利。",
+        biasA: 0.006, biasB: 0.035
+      },
+      {
+        title: "知名避險基金高調宣布融券放空刺激股，引爆激烈多空大戰！",
+        content: "刺激股盤中急跌又暴拉，主力瘋狂洗盤，成交量飆上歷史天量！",
+        tip: "小錦囊：看不懂行情震盪時，『空手觀望』也是極高明的策略，不要白白進出被洗出手續費。",
+        biasA: 0.0, biasB: -0.03
+      },
+      {
+        title: "穩定股突獲跨國巨頭簽下 5 年長約訂單！",
+        content: "盤中突發大單喜訊！法人長線資金大舉進場敲單，股價創波段新高！",
+        tip: "小錦囊：好公司遇到長期實質訂單，時間複利會慢慢獎勵有耐心的長期投資者。",
+        biasA: 0.008, biasB: 0.002
+      },
+      {
+        title: "刺激股宣布核心專利訴訟大獲全勝，上演暴力軋空！",
+        content: "放空外資被迫高價停損回補，刺激股直奔火箭升空行情！",
+        tip: "小錦囊：妖股的迷人之處在於爆發力，但水能載舟亦能覆舟，記得適當減倉保護獲利成果。",
+        biasA: 0.001, biasB: 0.045
+      },
+      {
+        title: "全球伺服器機房傳出大規模過熱當機意外！",
+        content: "科技股盤中突現震盪賣壓，題材股出現斷頭平倉潮，行情風雲變色！",
+        tip: "小錦囊：突發系統性意外發生時，先保持冷靜，評估是短期驚嚇還是長期傷害，切勿亂了分寸。",
+        biasA: -0.002, biasB: -0.038
+      },
+      {
+        title: "年度旗艦科技新品全線完售，供不應求傳聞滿天飛！",
+        content: "狂熱消費數據引爆投資熱潮，盤中追價買盤連綿不絕，題材股氣勢如虹！",
+        tip: "小錦囊：市場情緒高昂時往往容易產生追高衝動，建立自己的進出場紀律才不會成為最後一隻老鼠。",
+        biasA: 0.004, biasB: 0.032
+      },
+      {
+        title: "某主要原料供應商工廠突發火警，供貨面臨遞延！",
+        content: "供應鏈短線受阻引發市場擔憂，盤中買氣縮手，股價急劇回檔震盪！",
+        tip: "小錦囊：短暫供應瓶頸常造成情緒恐慌，懂得區分『一次性事件』與『永久性衰退』是進階技巧。",
+        biasA: -0.003, biasB: -0.025
+      }
+    ];
+
+    // 本次遊戲開局抽取的隨機 10 天劇本
+    let gameEvents = [];
+
+    /* 隨機洗牌演算法 (Fisher-Yates Shuffle) */
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    /* 初始化 10 天隨機劇本庫 */
+    function initRandomScenario() {
+      gameEvents = [];
+      const shuffledPre = shuffleArray(PRE_MARKET_POOL);
+      const shuffledMid = shuffleArray(MID_MARKET_POOL);
+
+      // 第 1~4 天：從盤前庫隨機抽 4 篇
+      for (let i = 0; i < 4; i++) {
+        gameEvents.push({
+          type: "pre",
+          title: shuffledPre[i].title,
+          content: shuffledPre[i].content,
+          tip: shuffledPre[i].tip,
+          biasA: shuffledPre[i].biasA,
+          biasB: shuffledPre[i].biasB
+        });
+      }
+
+      // 第 5~10 天：從盤中突發庫隨機抽 6 篇（觸發時間在 12~18 秒隨機浮動）
+      for (let i = 0; i < 6; i++) {
+        gameEvents.push({
+          type: "mid",
+          title: shuffledMid[i].title,
+          content: shuffledMid[i].content,
+          tip: shuffledMid[i].tip,
+          biasA: shuffledMid[i].biasA,
+          biasB: shuffledMid[i].biasB,
+          triggerSec: Math.floor(Math.random() * 6) + 13 // 13 ~ 18 秒間隨機爆發
+        });
+      }
+    }
+
+    /* ============================================================
+       流程控制
+       ============================================================ */
+    function nextIntro(step) {
+      document.getElementById('introModal1').style.display = 'none';
+      document.getElementById('introModal2').style.display = 'none';
+      document.getElementById('introModal3').style.display = 'none';
+      document.getElementById('introModal' + step).style.display = 'flex';
+    }
+
+    function startGame() {
+      document.getElementById('introModal3').style.display = 'none';
+      document.getElementById('modalOverlay').style.display = 'none';
+      initRandomScenario(); // 隨機生成專屬 10 天劇本
+      showDaySetup();
+    }
+
+    function showDaySetup() {
+      isMarketOpen = false;
+      isPausedForNews = false;
+      stockA.dayOpenPrice = stockA.price;
+      stockB.dayOpenPrice = stockB.price;
+      updateUI();
+
+      const event = gameEvents[currentDay - 1];
+      stockA.trendBias = event.biasA;
+      stockB.trendBias = event.biasB;
+
+      if (event.type === "pre") {
+        // 前 4 天：盤前頭條
+        document.getElementById('modalOverlay').style.display = 'flex';
+        document.getElementById('preMarketModal').style.display = 'flex';
+        document.getElementById('preMarketTitle').innerText = `【第 ${currentDay} 天 盤前頭條】`;
+        document.getElementById('preMarketContent').innerHTML = `<b>${event.title}</b><br><br>${event.content}`;
+        document.getElementById('preMarketTip').innerText = event.tip;
+      } else {
+        // 5~10 天：直接開盤，盤中彈窗觸發
+        startDailyTrading();
+      }
+    }
+
+    function startDailyTrading() {
+      document.getElementById('preMarketModal').style.display = 'none';
+      document.getElementById('modalOverlay').style.display = 'none';
+
+      timer = DAY_DURATION_SEC;
+      isMarketOpen = true;
+      isPausedForNews = false;
+      updateTimerUI();
+
+      const event = gameEvents[currentDay - 1];
+      let midTriggered = false;
+
+      // 倒數計時器
+      timerIntervalId = setInterval(() => {
+        if (isPausedForNews) return; // 彈窗閱讀中暫停倒數
+
+        timer--;
+        updateTimerUI();
+
+        // 盤中突發事件彈窗檢查
+        if (event.type === "mid" && !midTriggered && timer <= event.triggerSec) {
+          midTriggered = true;
+          triggerMidMarketAlert(event);
+        }
+
+        if (timer <= 0) {
+          endDailyTrading();
+        }
+      }, 1000);
+
+      // 行情跳動器
+      tickIntervalId = setInterval(() => {
+        if (isMarketOpen && !isPausedForNews) {
+          tickMarket();
+        }
+      }, TICK_INTERVAL_MS);
+    }
+
+    /* 盤中突發快訊彈窗 */
+    function triggerMidMarketAlert(event) {
+      isPausedForNews = true; // 盤中暫停跳動與倒數
+
+      document.getElementById('midAlertTitle').innerText = `🚨 第 ${currentDay} 天 盤中突發快訊 🚨`;
+      document.getElementById('midAlertContent').innerText = event.title;
+      document.getElementById('midAlertDesc').innerText = event.content;
+      document.getElementById('midAlertTip').innerText = event.tip;
+
+      document.getElementById('modalOverlay').style.display = 'flex';
+      document.getElementById('midMarketAlertModal').style.display = 'flex';
+    }
+
+    /* 玩家手動關閉盤中突發彈窗 */
+    function closeMidMarketAlert() {
+      document.getElementById('midMarketAlertModal').style.display = 'none';
+      document.getElementById('modalOverlay').style.display = 'none';
+
+      // 消息發酵衝擊
+      const event = gameEvents[currentDay - 1];
+      stockA.trendBias += event.biasA * 1.5;
+      stockB.trendBias += event.biasB * 1.5;
+
+      isPausedForNews = false; // 恢復盤中跳動與倒數
+    }
+
+    /* 每日收盤 */
+    function endDailyTrading() {
+      clearInterval(timerIntervalId);
+      clearInterval(tickIntervalId);
+      isMarketOpen = false;
+      isPausedForNews = false;
+
+      const todayTotal = calculateTotalAssets();
+      assetHistory.push(todayTotal);
+
+      const event = gameEvents[currentDay - 1];
+      document.getElementById('modalOverlay').style.display = 'flex';
+      document.getElementById('reviewModal').style.display = 'flex';
+      document.getElementById('reviewTitle').innerText = `第 ${currentDay} 天 收盤覆盤`;
+      document.getElementById('reviewAsset').innerText = Math.round(todayTotal).toLocaleString();
+
+      const prevAsset = assetHistory[assetHistory.length - 2];
+      const diff = todayTotal - prevAsset;
+      const profitEl = document.getElementById('reviewProfit');
+      if (diff >= 0) {
+        profitEl.className = 'up';
+        profitEl.innerText = `+${Math.round(diff).toLocaleString()} NTD`;
+      } else {
+        profitEl.className = 'down';
+        profitEl.innerText = `${Math.round(diff).toLocaleString()} NTD`;
+      }
+
+      document.getElementById('reviewTip').innerText = event.tip;
+
+      if (currentDay >= TOTAL_DAYS) {
+        document.getElementById('nextDayBtn').innerText = "查看最終 10 天總結算 ➔";
+      } else {
+        document.getElementById('nextDayBtn').innerText = `準備進入第 ${currentDay + 1} 天 ➔`;
+      }
+    }
+
+    function proceedNextDay() {
+      document.getElementById('reviewModal').style.display = 'none';
+      if (currentDay >= TOTAL_DAYS) {
+        showFinalResult();
+      } else {
+        currentDay++;
+        showDaySetup();
+      }
+    }
+
+    /* ============================================================
+       走勢跳動引擎
+       ============================================================ */
+    function tickMarket() {
+      // 穩定股 (7777)：波動溫和
+      const noiseA = (Math.random() - 0.49) * 0.005;
+      const changeRateA = noiseA + stockA.trendBias;
+      stockA.price = Math.max(1, stockA.price * (1 + changeRateA));
+      stockA.history.push(stockA.price);
+
+      // 刺激股 (4444)：波動極大
+      const noiseB = (Math.random() - 0.48) * 0.025;
+      const changeRateB = noiseB + stockB.trendBias;
+      stockB.price = Math.max(0.5, stockB.price * (1 + changeRateB));
+      stockB.history.push(stockB.price);
+
+      updateUI();
+      drawChart('chartA', stockA.history, '#58a6ff');
+      drawChart('chartB', stockB.history, '#f1c40f');
+    }
+
+    /* ============================================================
+       交易核心函式
+       ============================================================ */
+    function buyStock(code, qty) {
+      if (!isMarketOpen || isPausedForNews) return;
+      const stock = code === 'A' ? stockA : stockB;
+      const totalCost = stock.price * qty;
+
+      if (cash >= totalCost) {
+        cash -= totalCost;
+        stock.totalCost += totalCost;
+        stock.shares += qty;
+        updateUI();
+      } else {
+        alert("現金不足！這就是量力而為的真理。");
+      }
+    }
+
+    function sellStock(code, qty) {
+      if (!isMarketOpen || isPausedForNews) return;
+      const stock = code === 'A' ? stockA : stockB;
+      if (stock.shares >= qty) {
+        const income = stock.price * qty;
+        cash += income;
+        const avg = stock.totalCost / stock.shares;
+        stock.totalCost -= avg * qty;
+        stock.shares -= qty;
+        if (stock.shares === 0) stock.totalCost = 0;
+        updateUI();
+      } else {
+        alert("你手頭沒有那麼多零股可以賣！");
+      }
+    }
+
+    function buyStockMax(code) {
+      if (!isMarketOpen || isPausedForNews) return;
+      const stock = code === 'A' ? stockA : stockB;
+      const maxShares = Math.floor(cash / stock.price);
+      if (maxShares > 0) {
+        buyStock(code, maxShares);
+      } else {
+        alert("手頭現金連 1 股都買不起囉！");
+      }
+    }
+
+    function sellStockAll(code) {
+      if (!isMarketOpen || isPausedForNews) return;
+      const stock = code === 'A' ? stockA : stockB;
+      if (stock.shares > 0) {
+        sellStock(code, stock.shares);
+      }
+    }
+
+    /* ============================================================
+       UI 渲染與資產計算
+       ============================================================ */
+    function calculateTotalAssets() {
+      return cash + (stockA.shares * stockA.price) + (stockB.shares * stockB.price);
+    }
+
+    function updateUI() {
+      document.getElementById('dayDisplay').innerText = `第 ${currentDay} / ${TOTAL_DAYS} 天`;
+      document.getElementById('cashDisplay').innerText = Math.round(cash).toLocaleString();
+
+      const total = calculateTotalAssets();
+      document.getElementById('totalAssetDisplay').innerText = Math.round(total).toLocaleString();
+
+      const roi = ((total - INITIAL_CASH) / INITIAL_CASH) * 100;
+      const roiEl = document.getElementById('roiDisplay');
+      roiEl.innerText = (roi >= 0 ? "+" : "") + roi.toFixed(1) + "%";
+      roiEl.className = "dash-val " + (roi > 0 ? "up" : (roi < 0 ? "down" : "flat"));
+
+      // 標的 A
+      document.getElementById('priceA').innerText = stockA.price.toFixed(1);
+      const chgA = ((stockA.price - stockA.dayOpenPrice) / stockA.dayOpenPrice) * 100;
+      renderChangeTag('changeA', chgA);
+      document.getElementById('sharesA').innerText = stockA.shares;
+      document.getElementById('avgCostA').innerText = stockA.shares > 0 ? (stockA.totalCost / stockA.shares).toFixed(1) : 0;
+
+      // 標的 B
+      document.getElementById('priceB').innerText = stockB.price.toFixed(1);
+      const chgB = ((stockB.price - stockB.dayOpenPrice) / stockB.dayOpenPrice) * 100;
+      renderChangeTag('changeB', chgB);
+      document.getElementById('sharesB').innerText = stockB.shares;
+      document.getElementById('avgCostB').innerText = stockB.shares > 0 ? (stockB.totalCost / stockB.shares).toFixed(1) : 0;
+    }
+
+    function renderChangeTag(elemId, percent) {
+      const el = document.getElementById(elemId);
+      if (percent > 0.05) {
+        el.className = "price-change up";
+        el.innerText = `▲ +${percent.toFixed(2)}%`;
+      } else if (percent < -0.05) {
+        el.className = "price-change down";
+        el.innerText = `▼ ${percent.toFixed(2)}%`;
+      } else {
+        el.className = "price-change flat";
+        el.innerText = `0.00%`;
+      }
+    }
+
+    function updateTimerUI() {
+      document.getElementById('timerText').innerText = `${timer}s`;
+      const fillPct = (timer / DAY_DURATION_SEC) * 100;
+      document.getElementById('timeBarFill').style.width = fillPct + "%";
+    }
+
+    /* ============================================================
+       Canvas 走勢圖繪製
+       ============================================================ */
+    function drawChart(canvasId, dataPoints, color) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width = canvas.clientWidth;
+      const h = canvas.height = canvas.clientHeight;
+
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.strokeStyle = '#1b222c';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2);
+      ctx.stroke();
+
+      if (dataPoints.length < 2) return;
+
+      const min = Math.min(...dataPoints) * 0.98;
+      const max = Math.max(...dataPoints) * 1.02;
+      const range = max - min || 1;
+
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+
+      for (let i = 0; i < dataPoints.length; i++) {
+        const x = (i / (dataPoints.length - 1)) * w;
+        const y = h - ((dataPoints[i] - min) / range) * (h - 10) - 5;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    /* ============================================================
+       第 10 天最終結算
+       ============================================================ */
+    function showFinalResult() {
+      document.getElementById('modalOverlay').style.display = 'flex';
+      document.getElementById('finalModal').style.display = 'flex';
+
+      const finalAsset = calculateTotalAssets();
+      const roi = ((finalAsset - INITIAL_CASH) / INITIAL_CASH) * 100;
+
+      document.getElementById('finalAsset').innerText = Math.round(finalAsset).toLocaleString();
+      const roiEl = document.getElementById('finalRoi');
+      roiEl.innerText = (roi >= 0 ? "+" : "") + roi.toFixed(1) + "%";
+      roiEl.className = roi >= 0 ? "up" : "down";
+
+      let badge = "";
+      if (roi >= 20) {
+        badge = "🏆 華爾街傳奇股神（太強了，戰勝人性！）";
+      } else if (roi >= 5) {
+        badge = "💎 穩健存股實踐家（理智佈局，打敗通膨）";
+      } else if (roi >= -15) {
+        badge = "🌱 合格繳學費韭菜（小傷大補，學到市場教訓）";
+      } else {
+        badge = "📦 頂樓吹風反指標（追高殺跌大苦主，下次先存錢）";
+      }
+      document.getElementById('finalBadge').innerText = badge;
+
+      setTimeout(() => {
+        drawFinalAssetChart();
+      }, 50);
+    }
+
+    function drawFinalAssetChart() {
+      const canvas = document.getElementById('finalChartCanvas');
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width = canvas.clientWidth;
+      const h = canvas.height = canvas.clientHeight;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const min = Math.min(...assetHistory) * 0.95;
+      const max = Math.max(...assetHistory) * 1.05;
+      const range = max - min || 1;
+
+      // 基準線（$50,000）
+      const base50kY = h - ((INITIAL_CASH - min) / range) * (h - 20) - 10;
+      ctx.strokeStyle = '#555';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, base50kY); ctx.lineTo(w, base50kY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 走勢曲線
+      ctx.beginPath();
+      ctx.strokeStyle = '#f1c40f';
+      ctx.lineWidth = 3;
+
+      for (let i = 0; i < assetHistory.length; i++) {
+        const x = (i / (assetHistory.length - 1)) * (w - 20) + 10;
+        const y = h - ((assetHistory[i] - min) / range) * (h - 20) - 10;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+
+        ctx.fillStyle = '#ff4757';
+        ctx.fillRect(x - 3, y - 3, 6, 6);
+      }
+      ctx.stroke();
+    }
+
+    function restartGame() {
+      location.reload();
+    }
+
+    window.onload = () => {
+      drawChart('chartA', stockA.history, '#58a6ff');
+      drawChart('chartB', stockB.history, '#f1c40f');
+    };
+  </script>
+</body>
+</html>
